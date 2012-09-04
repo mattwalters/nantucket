@@ -10,3 +10,16 @@ A ^^- ^^- ^^-
 B ^^- ^^-    
 B ^^- ^^-  
 A ^^- ^^- ^^-  
+
+Usage
+=====
+
+You must have limerick.py, nantucket.py, and the cmu dictionary text file in the same directory. 
+Do not rename the dictionary. Simply run "python nantucket.py". Once the program parses the dictionary,
+you will be able to generate limericks on demand.
+
+
+NLP
+===
+
+...
