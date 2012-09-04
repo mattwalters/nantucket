@@ -41,5 +41,5 @@ graph.
 3. Use the nltk library for tagging parts of speech to provide structured data for human authored limericks. Use a machine learning
 library to create strings of words that match that structure. Possibly provide some manually structured data.
 
-I also like to develop a module that allows the output of the generator to be piped to a speech generator. 
+I would also like to develop a module that allows the output of the generator to be piped to a speech generator. 
 If a machine is going to write my poetry, I want it to read it to me as well.
