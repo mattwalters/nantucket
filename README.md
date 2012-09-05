@@ -29,9 +29,9 @@ I have a few ideas about how to generate limericks that satisfy the structural r
 create reasonably coherent and interesting poems. The next proposols are ordered by how complex I think they would be to implement.
 
 1. My first observation from using the prototype is that an extremely esoteric word is as likely to be included as very common words.
-If it is true that 80% of language is spoken using only 20% of the lexicon. As it stands now, the probability distribution
-over the words in the cmu dictionary is uniform. We can use a large data set (maybe from the nltk corpus) to find a ground truth
-of word frequency.
+It is said that 80% of language is spoken using only 20% of the lexicon. As it stands now, the probability distribution
+over the words in the cmu dictionary is uniform and does not reflect the actual distribution of word frequency. We can 
+use a large data set (maybe from the nltk corpus) to find ground truth of word frequency.
 
 2. We can also look at the probability of a word following another word. Again using a large data set we can construct a
 graph where nodes are words and weighted edges indicate the probability of the two words occuring next to each other.
