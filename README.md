@@ -14,6 +14,6 @@ A ^^- ^^- ^^-
 
 ##Usage
 
-You must have python, nltk, and the brown corpus installed. see python.org nltk.org nltk.org/data.html.
+You must have [python](python.org), [nltk](nltk.org), and the [brown corpus](nltk.org/data.html) installed.
 To Invoke the Nantucket REPL run 'python nantucket.py'
 
