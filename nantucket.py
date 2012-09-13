@@ -1,20 +1,34 @@
 
-import os
-import limerick
+
 
 print("Welcome to Nantucket!")
-print("loading cmu dictionary...")
-cmudict_path = "cmudict.0.7a.txt"
-if os.path.isfile(cmudict_path):
-    cmudict = open(cmudict_path, "r")
-    for line in cmudict:
-        if not line.startswith(";;;"):
-            limerick.Word(line)
+print("Loading...")
 
+import os
+from limerick import *
+
+_limericks = [RandomLimerick, 
+              DistributedLimerick, 
+              BigramGraphDFSLimerick,
+              BigramGraphDFSHeuristicLimerick,
+              BigramGraphBFSHeuristicLimerick]
 
 while True:
-    reply = raw_input("press enter for a limerick. press q to quit.\n")
-    if reply == "q": break
-    limmerick = limerick.Limmerick()
-    limmerick.printOut()
-    print("\n")
+    print('\n')
+    for i, lim in enumerate(_limericks):
+        print('enter ' + str(i) + ' for ' + lim.name())
+    print('enter q to quit')
+    reply = raw_input("\n")
+    try:
+        index = int(reply)
+        if index >= 0 and index < len(_limericks):
+            l = _limericks[index]
+            l = l()
+            print('\n')
+            print(l)
+            print('\n\npress enter')
+            raw_input('')
+    except ValueError:
+        pass
+    if reply == 'q': 
+        break

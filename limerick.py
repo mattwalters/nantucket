@@ -1,152 +1,230 @@
-
-import time
-import re
+from lex import *
+import abc
+import copy
+from evalfuncs import *
 import random
-from random import shuffle
-
-
-rhymeGroups = dict()
-stressGroups = dict() 
-
-def randomValue(list):
-    return list[random.randint(0, len(list)-1)]
-
-def stressKey(stresses):
-    key = ""
-    for stress in stresses:
-        key += str(stress)
-    return key
-
-def stressSubsetUnion(stresses):
-    keysubsets = []
-    length = len(stresses)
-    for i in range(0, length):
-        keysubsets.append(stressKey(stresses[i:length]))
-    stressUnion = []
-    for key in keysubsets:
-        if key in stressGroups:
-            stressUnion.extend(stressGroups[key])
-    return stressUnion
-
-class Word(object):
-
-    def __init__(self, line):
-        ## store word and
-        ## list of tuples (phone, stress) ; -1 for no stress
-        alphaNumPattern = re.compile('\\w+')
-        tokens = alphaNumPattern.findall(line)
-        self.word = tokens[0]
-        self.data = []
-        for i in range(1, len(tokens)):
-           token = tokens[i]
-           numPattern = re.compile('\\d')
-           stressMatch = numPattern.search(token)
-           stress = None  # default
-           if stressMatch: 
-               stress = stressMatch.group(0)
-               token = token.replace(stress, "")
-           self.data.append((token, stress))
-        ## find rhyme key (last vowel plus following consonants)
-        lastvowel = 0
-        for i in range(len(self.data)):
-            stress = self.data[i][1]
-            if stress:
-                lastvowel = i
-        end = ""
-        for phone in self.data[lastvowel:]: # slice
-            end += phone[0]
-        # add to rhymeGroups
-        if end in rhymeGroups.keys():
-            rhymeGroups[end].append(self)
-        else:
-            rhymeGroups[end] = [self]      
-        # add word to stressGroups
-        key = stressKey(self.stresses())
-        if key in stressGroups:
-            stressGroups[key].append(self)
-        else:
-            stressGroups[key] = [self]
-    
-    def stresses(self):
-        stresses = []
-        for tup in self.data:
-            stress = tup[1]
-            if stress:
-                stresses.append(stress)
-        return stresses
-
-    def phones(self):
-        phones = []
-        for tup in self.data:
-            phones.append(tup[0])
 
 class Line(object):
     
+
     def __init__(self, feet):
-        self.stresses = []
         self.words = []
-        for i in range(feet):
-            self.stresses.append(0)
-            self.stresses.append(0)
-            self.stresses.append(1) 
-    
-    def getline(self):
-        s = ""
-        for word in self.words:
-            s += (word + " ")
-        return s.lower()
-            
-    
-    def possibleWords(self):
-        possible = []
-        keySubsets = self.keySubset()
-        for key in keySubsets:
-            if key in stressGroups:
-                possible.append(stressGroups[key])
-        return possible
-    
+        self.stresses = []
+        for i in range(feet): self.stresses += [0, 0, 1]
+        
+
+    def fits(self, word):
+        if word is not None:
+            for stresskey in stresskeys(word):
+                match = True
+                keylen = len(stresskey)
+                if keylen > len(self.stresses): continue
+                stresstail = self.stresses[-keylen:]
+                for i in range(keylen):
+                    if stresstail[i] is not stresskey[i]: match = False
+                if match: return True
+        return False
+
+
+    def add(self, word):
+        if self.fits(word):
+            stresskey = min(stresskeys(word), key=len)
+            keylen = len(stresskey)
+            self.stresses = self.stresses[:-keylen]
+            self.words.insert(0, word)
+
+
     def full(self):
         return len(self.stresses) == 0
 
-    def stuff(self, word):
-        self.words.insert(0, word.word)
-        for i in range(len(word.stresses())):
-            self.stresses.pop(len(self.stresses)-1)
+    def __str__(self):
+        out = self.words
+        if not self.full(): out = [str(stress) for stress in self.stresses] + out 
+        return ' '.join(out)
 
-class Limmerick(object):
-    
+
+class Limerick(object):
+
     def __init__(self):
-       self.lineGroups = ( [Line(3), Line(3), Line(3)], 
-                           [Line(2), Line(2)] )
-       for lineGroup in self.lineGroups:
-           self.rhymeLineGroup(lineGroup)
-       for lineGroup in self.lineGroups:
-           for line in lineGroup:
-               self.stuffLine(line)
-       
-    def stuffLine(self, line):
-        while not line.full():
-            stressWords = stressSubsetUnion(line.stresses)
-            word = randomValue(stressWords)
-            line.stuff(word)
+        print('generating ' + self.__class__.name() + '...')
+        self.lines = [
+            Line(3), Line(3), 
+            Line(2), Line(2), 
+            Line(3)]
+        self.construct()
+        
+    @abc.abstractmethod
+    def construct(self):
+        """
+           This method should be overridden in
+           subclasses of Limerick.
+        """
+        return
 
-    def rhymeLineGroup(self, lineGroup):
-        rhymes = []
-        stressWords = stressSubsetUnion(lineGroup[0].stresses)
-        while len(rhymes) < len(lineGroup):
-            rhymeGroup = randomValue(rhymeGroups.values())
-            rhymes = list(set(stressWords) & set(rhymeGroup))
-        shuffle(rhymes)
-        for line in lineGroup:
-            line.stuff(rhymes.pop())
+    def full(self):
+        for line in self.lines:
+            if not line.full(): return False
+        return True
 
-    def printOut(self):
-        print(self.lineGroups[0][0].getline())
-        print(self.lineGroups[0][1].getline())
-        print(self.lineGroups[1][0].getline())
-        print(self.lineGroups[1][1].getline())
-        print(self.lineGroups[0][2].getline())
 
+    def __str__(self):
+        return reduce(lambda x,y: str(x) + '\n' + str(y), self.lines)
+
+    def initrhymes(self):
+        linegroupA = linegroup(3, 3)
+        self.lines[0] = linegroupA[0]
+        self.lines[1] = linegroupA[1]
+        self.lines[4] = linegroupA[2]
+        linegroupB = linegroup(2, 2)
+        self.lines[2] = linegroupB[0]
+        self.lines[3] = linegroupB[1]
+
+    @staticmethod
+    def name():
+        return 'a Limerick'
+        
         
 
 
+class RandomLimerick(Limerick):
+
+    def construct(self):
+        self.initrhymes()
+        for line in self.lines:
+            while not line.full():
+                words = stresskeyunion(line.stresses)
+                if len(words) > 0:
+                    word = choice(words)
+                    if line.fits(word): line.add(word)
+
+    @staticmethod
+    def name():
+        return 'a RandomLimerick'
+
+
+
+class DistributedLimerick(Limerick):
+    
+    def construct(self):
+        self.initrhymes()
+        for line in self.lines:
+            while not line.full():
+                words = stresskeyunion(line.stresses)
+                if len(words) > 0:
+                    word = sample(nltk.FreqDist(words))
+                    if line.fits(word): line.add(word)
+    @staticmethod
+    def name():
+        return 'a DistributedLimerick'
+
+
+
+class BigramGraphDFSLimerick(Limerick):
+    
+    def construct(self):
+        self.initrhymes()
+        self.solution = (0, None)
+        solutioncount = 0
+        fringe = []
+        bgg = bigramgraph()
+        fringe.append((copy.deepcopy(self.lines), self.lines[4].words[0]))
+        while fringe:
+            # unpack current context
+            context = self.pop(fringe)
+            currentlines = context[0]
+            currentword = context[1]
+            currentline = self.findcurrentline(currentlines)
+            if currentline is None:  
+                # we have found a complete solution, register it
+                solutioncount += 1
+                if not self.registersolution(currentlines, solutioncount):
+                    self.lines = self.solution[1]
+                    return
+            else:                    
+                # find all edges in the bgg
+                # that also fit the stress structure
+                # add them to the stack and continue graph search
+                stresswords = stresskeyunion(currentline.stresses)
+                bigrams = bgg[currentword]
+                bigramwords = [key for key in bigrams]
+                words = list(set(stresswords) & set(bigramwords))
+                self.pushchildren(fringe, currentlines, words)
+                
+        # if the graph search finished then registersolution() didn't hault on a solution
+        # most likely this indicated that the inital context supplied bu initrhymes() did
+        # not lead to any complete solutions.
+        # We should call self.construct() again. This will give us a new initial context
+        # so graph search can be attemtped again.
+        self.construct()
+            
+    def pop(self, fringe):
+        """ this method abstracts popping an element off of the fringe.
+            This way we can support DFS or BFS just by providing a seperate implementation.
+            DFS by default.
+        """
+        return fringe.pop()
+
+    def pushchildren(self, fringe, currentlines, words):
+        """ This method abstract how a nodes children should be pushed to the fringe
+            Default is random order
+        """
+        random.shuffle(words)
+        for word in words:
+            lines = copy.deepcopy(currentlines)
+            self.findcurrentline(lines).add(word)
+            fringe.append((lines, word))
+        
+    @staticmethod
+    def name():
+        return 'a BigramGraphDFSLimerick'
+
+
+    def registersolution(self, lines, solutioncount):
+        """ This function is called when a solution if found.
+            It also determines whether or not to continue the search.
+            If we return True, the search continues, if we return False
+            the search will hault and the currently registered solution
+            will be the final solution.
+            
+            This implementation of solution haults the search after the first solution
+            is found. Subclasses of BigramGraphSearchLimerick may wish to implement a
+            different strategy. For example, applying an evaluation function to the first
+            100 solutions found and haulting on the solution with the highest evalution.
+        """
+        self.solution = (0, lines)
+        return False
+ 
+
+
+    def findcurrentline(self, lines):
+        """ This function steps through a list of lines in reverse order.
+            It returns the first incomplete line it finds
+            or None if all lines are complete
+        """
+        for i in range(len(lines)-1, -1, -1):
+            if not lines[i].full():
+                return lines[i]
+            
+            
+        
+
+class BigramGraphDFSHeuristicLimerick(BigramGraphDFSLimerick):
+
+    def registersolution(self, lines, solutioncount):
+        self.solution = max(self.solution, (evallines(lines), lines))
+        return solutioncount < 1
+
+    @staticmethod
+    def name():
+        return 'a BigramGraphDFSHeuristicLimerick'
+
+
+class BigramGraphBFSHeuristicLimerick(BigramGraphDFSHeuristicLimerick):
+
+    def pop(self, fringe):
+        return fringe.pop(0)
+
+    @staticmethod
+    def name():
+        return 'a BigramGraphBFSHeuristicLimerick'
+    
