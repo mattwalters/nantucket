@@ -19,7 +19,8 @@ print("Loading...")
 import os
 from limerick import *
 
-_limericks = [RandomLimerick, 
+_limericks = [NonRhymingLimerick,
+              RandomLimerick, 
               DistributedLimerick, 
               BigramGraphDFSLimerick,
               BigramGraphDFSHeuristicLimerick,
@@ -30,7 +31,7 @@ while True:
     for i, lim in enumerate(_limericks):
         print('enter ' + str(i) + ' for ' + lim.name())
     print('enter q to quit')
-    reply = raw_input("\n")
+    reply = raw_input("\nnantucket>>>")
     try:
         index = int(reply)
         if index >= 0 and index < len(_limericks):

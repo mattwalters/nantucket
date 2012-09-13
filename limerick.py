@@ -97,7 +97,7 @@ class Limerick(object):
 
     @staticmethod
     def name():
-        return 'a Limerick'
+        return 'a limerick'
         
         
 
@@ -115,7 +115,22 @@ class RandomLimerick(Limerick):
 
     @staticmethod
     def name():
-        return 'a RandomLimerick'
+        return 'a random limerick'
+
+
+class NonRhymingLimerick(Limerick):
+
+    def construct(self):
+        for line in self.lines:
+            while not line.full():
+                words = stresskeyunion(line.stresses)
+                if len(words) > 0:
+                    word = choice(words)
+                    if line.fits(word): line.add(word)
+
+    @staticmethod
+    def name():
+        return 'a non-rhyming limerick'
 
 
 
@@ -131,7 +146,7 @@ class DistributedLimerick(Limerick):
                     if line.fits(word): line.add(word)
     @staticmethod
     def name():
-        return 'a DistributedLimerick'
+        return 'a distributed limerick'
 
 
 
@@ -192,7 +207,7 @@ class BigramGraphDFSLimerick(Limerick):
         
     @staticmethod
     def name():
-        return 'a BigramGraphDFSLimerick'
+        return 'a bigram graph depth first search limerick'
 
 
     def registersolution(self, lines, solutioncount):
@@ -228,11 +243,11 @@ class BigramGraphDFSHeuristicLimerick(BigramGraphDFSLimerick):
 
     def registersolution(self, lines, solutioncount):
         self.solution = max(self.solution, (evallines(lines), lines))
-        return solutioncount < 1
+        return solutioncount < 10000
 
     @staticmethod
     def name():
-        return 'a BigramGraphDFSHeuristicLimerick'
+        return 'a bigram graph depth first search limerick with heuristic'
 
 
 class BigramGraphBFSHeuristicLimerick(BigramGraphDFSHeuristicLimerick):
@@ -242,5 +257,5 @@ class BigramGraphBFSHeuristicLimerick(BigramGraphDFSHeuristicLimerick):
 
     @staticmethod
     def name():
-        return 'a BigramGraphBFSHeuristicLimerick'
+        return 'a bigram graph breadth first search limerick with heuristic'
     
