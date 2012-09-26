@@ -107,7 +107,7 @@ class AnapesticLine(Line):
 class AmphibrachicLine(Line):
 
     def __init__(self, count, rhymegroup):
-        Line.__init__(self, AmphibrachicFoor, count, rhymegroup)
+        Line.__init__(self, AmphibrachicFoot, count, rhymegroup)
 
 
 

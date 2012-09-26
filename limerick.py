@@ -82,7 +82,7 @@ class LexigraphicLimerick(IndependentLineLimerick):
 ########################################################################################
 
 
-class NGramGraphSearchLimerick(Limerick):
+class NgramGraphSearchLimerick(Limerick):
 
     def __init__(self, n, l):
         Limerick.__init__(self, l)
@@ -138,15 +138,28 @@ class NGramGraphSearchLimerick(Limerick):
 
 
 
-                
+class BigramGraphDFSLimerick(NgramGraphSearchLimerick):
+
+    def __init__(self, l):
+        NgramGraphSearchLimerick.__init__(self, 2, l) 
             
-            
-            
-        
-        
-        
+
+class TrigramGraphDFSLimerick(NgramGraphSearchLimerick):
+
+    def __init__(self, l):
+        NgramGraphSearchLimerick.__init__(self, 3, l)
 
 
+class BigramGraphBFSLimerick(NgramGraphSearchLimerick):
+
+    def __init__(self, l):
+        print('warning, this limerick requires a prohibitive amount of space...')
+        print('be prepared to kill process...')
+        NgramGraphSearchLimerick.__init__(self, 2, l)
+
+    def popfringe(self):
+        return self.fringe.pop(0)
+        
 
 
 
