@@ -14,152 +14,327 @@
 #   limitations under the License.
 
 
-import nltk
+import nltk, re, random
 from nltk.corpus import brown
-import limerick
-import re
 from collections import defaultdict
-from random import *
-
-_text = brown.words()
-
-# create the pronunciation dictionary
-_prondict = nltk.corpus.cmudict.dict()
-for prons in _prondict.values(): # can be many prons
-    for pron in prons:
-        for i, phone in enumerate(pron):
-            # strip out stress indictaor
-            # create tuple: (phone, stress)
-            match = re.compile('\\d').search(phone)
-            stress = None
-            value = phone
-            if match is not None: 
-                stress = match.group(0)
-                value = phone.replace(stress, '')
-                stress = int(stress)
-                if stress == 2: stress = 0
-            # replace original value with tuple
-            pron[i] = (value, stress) 
 
 
+""" This module provides lexigraphical resources used
+    for constructing Limericks. Construction of resources is
+    lazy and memoized.
 
-# create the universe set. This is the set of all possible words
-_universe = set(_prondict.keys())
+    1. terms        A set of terminal punctuation characters.
+                    
+    2. puncts       A set of punctuation; a superset of terms
 
+    3. sents        A list of sentences used to construct other
+                    lexigraphic resrouces
+    
+    3. lexicon      A set of all words and punctuation used in
+                    this module. The lexicon does not contain all
+                    dictionary words. Instead it contains only words
+                    for which there is sufficient information
+                    (pronunciation, syllables, etc).
 
-# create a frequency distribution of all the words in the universe
-_freqdist = nltk.FreqDist()
-for word in _text:
-    if word in _universe:
-        _freqdist.inc(word)
+    5. prondict     A pronunciation dictionary provided by the Carnegie
+                    Mellon pronunciation dictionary. The structure of
+                    resource is different than that provided by
+                    nltk.corpus.cmudict.dict(). Specifically a value is
+                    a list of pronunciations where earch pronunciation is
+                    a list of tuples of the form (phoneme, stress). If the
+                    phoneme is not a vowel, then stress is None. Generally
+                    there is a single stress per syllable. Stresses are
+                    simplified to 0 for unstressed and 1 for stressed.
+                    No secondary stress is considered.
 
+    6. freqdist     A frequency distribution of the tokens in sents. Tokens
+                    not present in lexicon are disregarded.
 
-# create a function that generates a sample based on the given freq dist
-def sample(freqdist):
-    return nltk.probability.MLEProbDist(freqdist).generate()
+    7. ngrams       a dictionary of ngrams over sents. Only tokens present in
+                    lexicon are considered. Convenience methods for bigrams
+                    and trigrams simply wrap ngrams(n)
+
+    8 ngramgraph    A dictionary of ngram graphs. An ngram graph is
+                    constructed by taking the ngram and partitioning it
     
 
+"""
+    
+
+def sents():
+    if sents.memo is None:
+        sents.memo = [[word.lower() for word in sent] for sent in brown.sents()]
+    return sents.memo
+sents.memo = None
+
+def linkedsents():
+    if linkedsents.memo is None:
+        ls = [sent for sent in sents()]
+        curr = None
+        prev = None
+        for sent in ls:
+            prev = curr
+            curr = sent
+            if prev is not None:
+                curr.insert(0, prev[-1])
+        linkedsents.memo = ls
+    return linkedsents.memo
+linkedsents.memo = None
+
+def lexicon():
+    if lexicon.memo is None:
+        l = set(prondict().keys())
+        for punct in puncts():
+            l.add(punct)
+        lexicon.memo = l
+    return lexicon.memo
+lexicon.memo = None
 
 
-# create the bigram graph where bigram[1] --> bigram[0]
-bigrams = nltk.bigrams(_text)
-# create a defaultdict(defaultdict(int))
-# there will be an implicit weight of 0 for all new edges
-_bigramgraph = defaultdict(lambda: defaultdict(int))
-for head, tail in bigrams:
-    if head in _universe and tail in _universe:    
-        _bigramgraph[tail][head] += 1 # increment edge weight
+# pronunciation dictionary #####################################################
+################################################################################
 
-
-# create a function that takes a list of 
-
-
-# create a function for finding a words rhyming key
-# rhymekey is the last vowel phone concatenated with all following phones
-def rhymekeys(word):
-    if word in _universe:
-        keys = []
-        for pron in _prondict[word]:
-            # find occurance of last vowel
-            lastvowel = 0
-            for i, phone in enumerate(pron):
-                if phone[1] is not None: lastvowel = i
-            key = ''
-            for phone in pron[lastvowel:]:
-                key += phone[0]
-            keys.append(key)
-        return keys
-    else: return None
-
-
-# create rhyme dictionary    
-_rhymedict = defaultdict(list)
-for word in _universe:
-    for rhymekey in rhymekeys(word):
-        _rhymedict[rhymekey].append(word)
-
-
-# define a function for getting a tuple of the stresses (excluding all None values)
-def stresskeys(word):
-    keys = []
-    for pron in _prondict[word]:
-        key = [stress for word, stress in pron if stress is not None]
-        keys.append(tuple(key))
-    return keys
-
-# create a dictionary of stresses where {stresskey : [wordone, wordtwo]}
-_stressdict = defaultdict(list)
-for word in _universe:
-    for stresskey in stresskeys(word):
-        _stressdict[stresskey].append(word)
-
-
-# create a function that returns the union of all _stressdict lookups
-# for stresskey[i:] for 0 <= i < len(stresskey)
-
-def stresskeyunion(stresskey):
-    words = []
-    keylen = len(stresskey)
-    for i in range(keylen):
-        for word in _stressdict[tuple(stresskey[i:])]:
-            words.append(word)
-    return words
-
-# create a function that produces a line group with rhymes at the end
-# specify how many lines and how many feet per line
-def linegroup(count, feet):
-    linegroup = []
-    rhymegroup = []
-    for i in range(count):
-        linegroup.append(limerick.Line(feet))
-    rhymeset = []
-    while len(rhymeset) < count:
-        rando = choice(_rhymedict.values())
-        rhymeset = set(rando).intersection(set(stresskeyunion(linegroup[0].stresses)))
-    rhymelist = list(rhymeset)
-    shuffle(rhymelist)
-    for i in range(count):
-        linegroup[i].add(rhymelist[i])
-    return linegroup
-
-
-
-## public access to lexicon resources ##
-
-def universe():
-    return _universe
 
 def prondict():
-    return _prondict
+    if prondict.memo is None:
+        pd = nltk.corpus.cmudict.dict()
+        for prons in pd.values(): # can be many prons
+            for pron in prons:
+                for i, phone in enumerate(pron):
+                    # strip out stress indictaor
+                    # create tuple: (phone, stress)
+                    match = re.compile('\\d').search(phone)
+                    stress = None
+                    if match is not None: 
+                        stress = match.group(0)
+                        # remove stress idicator from phone
+                        phone = phone.replace(stress, '') 
+                        stress = int(stress)
+                        # convert secondary stress indicator
+                        # to no stress indicator
+                        if stress == 2: stress = 0
+                    # replace original value with tuple
+                    pron[i] = (phone, stress)
+        prondict.memo = pd
+    return prondict.memo
+prondict.memo = None
 
-def bigramgraph():
-    return _bigramgraph
 
-def rhymedict():
-    return _rhymedict
+# punctuation  #################################################################
+################################################################################
 
-def stressdict():
-    return _stressdict
+def terms():
+    if terms.memo is None:
+        terms.memo = ['.', '!', '?']
+    return terms.memo
+terms.memo = None
+
+def randomterm():
+    return random.choice(terms())
+
+def puncts():
+    if puncts.memo is None:
+        puncts.memo = [',', ':', ';'] + terms()
+    return puncts.memo
+puncts.memo = None
+
+def randompunct():
+    return random.choice(puncts())
+
+       
+# frequency distribution #######################################################
+################################################################################
+ 
 
 def freqdist():
-    return _freqdist
+    if freqdist.memo is None:
+        fd = nltk.FreqDist()
+        for sent in sents():
+            for word in sent:
+                if word in lexicon():
+                    fd.inc(word)
+        freqdist.memo = fd
+    return freqdist.memo
+freqdist.memo = None
+
+
+
+# ngram ########################################################################
+################################################################################
+
+
+
+def __ngrammaker__(n, s):
+    ng = [ngram for sent in s
+          for ngram in nltk.ngrams(sent, n)
+          if all(token in lexicon() for token in ngram)]
+    return ng
+
+def ngrams(n):
+    if n not in ngrams.memo:
+        ngrams.memo[n] = __ngrammaker__(n, sents())
+    return ngrams.memo[n]
+ngrams.memo = {}
+    
+
+def bigrams():
+    return ngrams(2)
+
+def trigrams():
+    return ngrams(3)
+
+
+
+def linkedngrams(n):
+    if n not in linkedngrams.memo:
+        linkedngrams.memo[n] = __ngrammaker__(n, linkedsents())
+    return linkedngrams.memo[n]
+linkedngrams.memo = {}
+
+
+
+
+# ngram graphs #################################################################
+################################################################################
+
+__front__ = lambda i, ngram: ngram[:i]
+__back__ = lambda i, ngram: ngram[i:]
+
+def __graphmaker__(n, ngfunc, keyfunc, valuefunc):
+    ngg = defaultdict(lambda: defaultdict(int))
+    for ngram in ngfunc(n):
+        if all(token in lexicon() for token in ngram):
+            for i in range(1, n):
+                key = keyfunc(i, ngram)
+                value = valuefunc(i, ngram)
+                ngg[tuple(key)][tuple(value)] += 1
+    return ngg
+    
+
+def ngramgraph(n):
+    if n not in ngramgraph.memo:
+        ngramgraph.memo[n] = __graphmaker__(n, ngrams, __front__, __back__)
+    return ngramgraph.memo[n]
+ngramgraph.memo = {}
+
+def r_ngramgraph(n):
+    if n not in r_ngramgraph.memo:
+        r_ngramgraph.memo[n] = __graphmaker__(n, ngrams, __back__, __front__)
+    return r_ngramgraph.memo[n]
+r_ngramgraph.memo = {}
+                    
+def bigramgraph():
+    return ngramgraph(2)
+
+def r_bigramgraph():
+    return r_ngramgraph(2)
+
+def trigramgraph():
+    return ngramgraph(3)
+
+def r_trigramgraph():
+    return r_ngramgraph(3)
+
+
+def linkedngramgraph(n):
+    if n not in linkedngramgraph.memo:
+        linkedngramgraph.memo[n] = __graphmaker__(n, linkedngrams, __front__, __back__)
+    return linkedngramgraph.memo[n]
+linkedngramgraph.memo = {}
+
+
+def r_linkedngramgraph(n):
+    if n not in r_linkedngramgraph.memo:
+        r_linkedngramgraph.memo[n] = __graphmaker__(n, linkedngrams, __back__, __front__)
+    return r_linkedngramgraph.memo[n]
+r_linkedngramgraph.memo = {}
+
+
+
+# rhyme ########################################################################
+################################################################################
+
+def rhymedict():
+    if rhymedict.memo is None:
+        rd = defaultdict(list)
+        for word in lexicon():
+            if word not in puncts():
+                for rhymekey in rhymekeys(word):
+                    rd[rhymekey].append(word)
+        rhymedict.memo = rd
+    return rhymedict.memo
+rhymedict.memo = None
+
+def rhymekeys(word):
+    keys = []
+    for pron in prondict()[word]:
+        # find occurance of last vowel
+        lastvowel = 0
+        for i, phone in enumerate(pron):
+            if phone[1] is not None: lastvowel = i
+        key = ''
+        for phone in pron[lastvowel:]:
+            key += phone[0]
+        keys.append(key)
+    return keys
+
+
+def randomrhymepool():
+    rd = rhymedict()
+    return rd[random.choice(rd.keys())]
+
+
+
+
+# stress #######################################################################
+################################################################################
+
+def stresscounts(word):
+    return [len(stresskey) for stresskey in stresskeys(word)]
+
+def stresskeys(word):
+    return [[stress for phone, stress in pron
+             if stress is not None]
+            for pron in prondict()[word]]
+
+def stressdict():
+    if stressdict.memo is None:
+        sd = defaultdict(list)
+        for word in lexicon():
+            if word not in puncts():
+                stresskeys = [[stress for phone, stress in pron
+                               if stress is not None]
+                              for pron in prondict()[word]]
+                for stresskey in stresskeys:
+                    sd[tuple(stresskey)].append(word)
+        stressdict.memo = sd
+    return stressdict.memo
+stressdict.memo = None
+
+def legalstresswords(line):
+    words = []
+    keylen = len(line.stresses)
+    for i in range(keylen):
+        for word in stressdict()[tuple(line.stresses[i:])]:
+            if not line.fits(word):
+                raise Exception('word is not legal: ' + word)
+            words.append(word)
+    if line.words and line.words[0] not in puncts():
+        words += puncts()
+    return words
+
+################################################################################
+
+
+
+
+def lexigraphicsample(words):
+    wordsdist = {}
+    for word in words:
+        wordsdist[word] = freqdist()[word]
+    pd = nltk.probability.DictionaryProbDist(wordsdist, normalize=True)
+    return pd.generate()
+
+        
+
+
